@@ -11,19 +11,22 @@ status = {
     }
 
 def nginx_pid():
-    try:
-        with open("/run/nginx.pid", encoding = 'utf-8') as f:
-            return int(f.readline())
-    except FileNotFoundError:
-        exit(json.dumps(status["ERR"]))
+    for pid in os.listdir("/proc"):
+        if pid.isdigit():
+            with open("/proc/{}/comm".format(pid), encoding = 'utf-8') as f:
+                if "nginx" in f.readline():
+                    return pid
 
 def nginx_load_sockets(pid):
     inodes = []
-    for fd in os.listdir("/proc/{}/fd".format(pid)):
-        fd_info = os.readlink("/proc/{}/fd/{}".format(pid, fd))
-        if fd_info.split(":")[0] == "socket":
-            inode = json.loads(fd_info.split(":")[1])[0]
-            inodes.append(inode)
+    try:
+        for fd in os.listdir("/proc/{}/fd".format(pid)):
+            fd_info = os.readlink("/proc/{}/fd/{}".format(pid, fd))
+            if fd_info.split(":")[0] == "socket":
+                inode = json.loads(fd_info.split(":")[1])[0]
+                inodes.append(inode)
+    except PermissionError:
+        sys.exit("Must run as root")
     return inodes
 
 
